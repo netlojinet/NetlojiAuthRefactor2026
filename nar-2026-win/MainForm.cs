@@ -194,76 +194,75 @@ public partial class MainForm : Form
 
         if (_session is null) return;
 
-        // Root node: "Tüm Scope'lar"
         var rootNode = new TreeNode("Tüm Scope'lar (-1)");
         rootNode.Tag = new ScopeNodeInfo(-1, "root_scope", 255, "Sistem kök scope");
 
-        // Scope türlerini grupla
-        var orgScopes = new Dictionary<int, TreeNode>(); // SCOPE_ID → org node
-        var propScopes = new Dictionary<int, TreeNode>(); // SCOPE_ID → prop node
+        var orgScopes = new Dictionary<int, TreeNode>();
+        var propScopes = new Dictionary<int, TreeNode>();
 
-        // DB'den tüm scope'ları çek
         using var conn = new SqlConnection(ConnectionString);
         conn.Open();
 
-        // Organizations
+        // 1) Org'ları oku
+        var orgData = new List<(int OrgId, int ScopeId, string Name)>();
         using (var cmd = new SqlCommand(
             "SET QUOTED_IDENTIFIER ON; SELECT o.ORGANIZATION_ID, o.SCOPE_ID, o.ORG_NAME FROM core.tblOrganization o WHERE o.DELETED=0", conn))
         using (var r = cmd.ExecuteReader())
         {
             while (r.Read())
             {
-                var orgId = r.GetInt32(0);
-                var scopeId = r.GetInt32(1);
-                var name = r.GetString(2);
-                var node = new TreeNode($"[ORG] {name} (scope={scopeId})");
-                node.Tag = new OrgNodeInfo(orgId, scopeId, name);
-                rootNode.Nodes.Add(node);
-                orgScopes[scopeId] = node;
+                orgData.Add((r.GetInt32(0), r.GetInt32(1), r.GetString(2)));
             }
         }
 
-        // Properties
+        foreach (var (orgId, scopeId, name) in orgData)
+        {
+            var node = new TreeNode($"[ORG] {name} (scope={scopeId})");
+            node.Tag = new OrgNodeInfo(orgId, scopeId, name);
+            rootNode.Nodes.Add(node);
+            orgScopes[scopeId] = node;
+        }
+
+        // 2) Property'leri oku
+        var propData = new List<(int PropId, int ScopeId, string Name, int? OwnerOrgId)>();
         using (var cmd = new SqlCommand(
             "SET QUOTED_IDENTIFIER ON; SELECT p.PROPERTY_ID, p.SCOPE_ID, p.PROP_NAME, p.OWNER_ORGANIZATION_ID FROM core.tblProperty p WHERE p.DELETED=0", conn))
         using (var r = cmd.ExecuteReader())
         {
             while (r.Read())
             {
-                var propId = r.GetInt32(0);
-                var scopeId = r.GetInt32(1);
-                var name = r.GetString(2);
                 var ownerOrgId = r.IsDBNull(3) ? (int?)null : r.GetInt32(3);
-
-                var node = new TreeNode($"[PROP] {name} (scope={scopeId})");
-                node.Tag = new PropNodeInfo(propId, scopeId, name, ownerOrgId);
-
-                // Org'a bağlıysa altına ekle, değilse root'a
-                if (ownerOrgId.HasValue)
-                {
-                    // Org'un scope'unu bul
-                    using var orgCmd = new SqlCommand(
-                        $"SET QUOTED_IDENTIFIER ON; SELECT SCOPE_ID FROM core.tblOrganization WHERE ORGANIZATION_ID={ownerOrgId.Value} AND DELETED=0", conn);
-                    var orgScopeId = orgCmd.ExecuteScalar();
-                    if (orgScopeId is int os && orgScopes.TryGetValue(os, out var orgNode))
-                    {
-                        orgNode.Nodes.Add(node);
-                    }
-                    else
-                    {
-                        rootNode.Nodes.Add(node);
-                    }
-                }
-                else
-                {
-                    rootNode.Nodes.Add(node);
-                }
-
-                propScopes[scopeId] = node;
+                propData.Add((r.GetInt32(0), r.GetInt32(1), r.GetString(2), ownerOrgId));
             }
         }
 
-        // Kullanıcının grant'lerini ağaca işaretle
+        // 3) Property'leri ağaca ekle
+        foreach (var (propId, scopeId, name, ownerOrgId) in propData)
+        {
+            var node = new TreeNode($"[PROP] {name} (scope={scopeId})");
+            node.Tag = new PropNodeInfo(propId, scopeId, name, ownerOrgId);
+
+            if (ownerOrgId.HasValue)
+            {
+                // Org'un scope'unu ayrı sorgu ile bul
+                using var orgCmd = new SqlCommand(
+                    "SET QUOTED_IDENTIFIER ON; SELECT SCOPE_ID FROM core.tblOrganization WHERE ORGANIZATION_ID=@oid AND DELETED=0", conn);
+                orgCmd.Parameters.AddWithValue("@oid", ownerOrgId.Value);
+                var result = orgCmd.ExecuteScalar();
+                if (result is int os && orgScopes.TryGetValue(os, out var orgNode))
+                    orgNode.Nodes.Add(node);
+                else
+                    rootNode.Nodes.Add(node);
+            }
+            else
+            {
+                rootNode.Nodes.Add(node);
+            }
+
+            propScopes[scopeId] = node;
+        }
+
+        // 4) Grant'leri ağaca işaretle
         foreach (var grant in _session.ScopeGrants.Values)
         {
             var marker = $"  [{grant.PrincipalTypeId}] {grant.CeilingLevel}";
