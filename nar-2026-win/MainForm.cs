@@ -1,16 +1,19 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
+using Nar2026.Core;   // PAYLAŞILAN auth motoru — CLI ile AYNI kod (nar-2026-core)
 
 namespace NetlojiAuthTestTool;
 
 public partial class MainForm : Form
 {
     private const string ConnectionString =
-        "Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;";
+        "Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
 
-    private UserSession? _session;
+    // Paylaşılan motor — login + erişim çözümü buradan. GUI == CLI.
+    private readonly AuthEngine _engine = new(ConnectionString);
 
-    // Tüm scope'ların tür+ad sözlüğü (org/property/individual/root) — grid + erişim yolu için, login başına bir kez yüklenir.
+    private AuthContext? _session;
+    private HashSet<int> _ownedScopes = [];   // F2: core.tblScope.OWNER_USER_ID'den (veri-güdümlü)
     private Dictionary<int, (string Type, string Name)> _scopeInfo = new();
 
     public MainForm()
@@ -26,7 +29,7 @@ public partial class MainForm : Form
         Log("Kullanıcılar yüklendi. Bir kullanıcı seçin.");
     }
 
-    // ══════════════════════════════════════ Kullanıcı yükleme
+    // ══════════════════════════════════════ Kullanıcı listesi (UI'a özel)
     private async Task LoadUsers()
     {
         lvUsers.Items.Clear();
@@ -35,8 +38,7 @@ public partial class MainForm : Form
 
         const string sql = """
             SET QUOTED_IDENTIFIER ON;
-            SELECT u.USER_ID, u.USERNAME, u.GSM_NO, u.PRINCIPAL_TYPE_ID,
-                   pt.CODE, pt.TIER_ID, pt.APP_ID, pt.CEILING_LEVEL
+            SELECT u.USER_ID, u.USERNAME, u.GSM_NO, u.PRINCIPAL_TYPE_ID, pt.CODE, pt.TIER_ID
             FROM core.tblUser u
             LEFT JOIN core.conPrincipalType pt ON u.PRINCIPAL_TYPE_ID = pt.PRINCIPAL_TYPE_ID
             WHERE u.DELETED = 0
@@ -64,63 +66,19 @@ public partial class MainForm : Form
         Log($"  {lvUsers.Items.Count} kullanıcı yüklendi.");
     }
 
-    // ══════════════════════════════════════ Login (ssp_CheckForLogin: R1 header, R2 grants, R3 descendants)
+    // ══════════════════════════════════════ Kullanıcı seçimi → login (PAYLAŞILAN AuthEngine)
     private async void LvUsers_SelectedIndexChanged(object? sender, EventArgs e)
     {
         if (lvUsers.SelectedItems.Count == 0) return;
         var info = (UserInfo)lvUsers.SelectedItems[0].Tag!;
         Log($"Seçilen: [{info.UserId}] {info.Username} (GSM={info.GsmNo})");
 
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
+        _session = await _engine.LoginByGsmAsync(info.GsmNo);   // core.ssp_CheckForLogin
+        if (_session is null) { Log("  LOGIN BAŞARISIZ!"); return; }
+        Log($"  Login OK: principal={_session.PrincipalTypeId} tier={_session.TierId} ceiling={_session.CeilingLevel} | scopes={_session.ScopeGrants.Count}");
 
-        await using var cmd = new SqlCommand(
-            "SET QUOTED_IDENTIFIER ON; EXEC core.ssp_CheckForLogin @GSM_NO = @gsm", conn);
-        cmd.Parameters.AddWithValue("@gsm", info.GsmNo);
-        await using var reader = await cmd.ExecuteReaderAsync();
-
-        if (!await reader.ReadAsync()) { Log("  LOGIN BAŞARISIZ!"); return; }
-
-        var username = reader.GetString(reader.GetOrdinal("USERNAME"));
-        var principalTypeId = reader.GetInt32(reader.GetOrdinal("PRINCIPAL_TYPE_ID"));
-        var tierId = reader.IsDBNull(reader.GetOrdinal("TIER_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("TIER_ID"));
-        var appId = reader.IsDBNull(reader.GetOrdinal("APP_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("APP_ID"));
-        var ceilingLevel = reader.IsDBNull(reader.GetOrdinal("CEILING_LEVEL")) ? "none" : reader.GetString(reader.GetOrdinal("CEILING_LEVEL"));
-        var userKey = reader.GetInt64(reader.GetOrdinal("USER_KEY"));
-        Log($"  Login OK: principal={principalTypeId} tier={tierId} ceiling={ceilingLevel}");
-
-        var grants = new Dictionary<int, ScopeGrant>();
-        if (await reader.NextResultAsync())
-            while (await reader.ReadAsync())
-            {
-                var scopeId = reader.GetInt32(0);
-                grants[scopeId] = new ScopeGrant(scopeId, reader.GetInt32(1),
-                    reader.IsDBNull(2) ? "none" : reader.GetString(2),
-                    reader.IsDBNull(3) ? "direct" : reader.GetString(3));
-            }
-
-        var descendants = new Dictionary<int, HashSet<int>>();
-        if (await reader.NextResultAsync())
-            while (await reader.ReadAsync())
-            {
-                var parent = reader.GetInt32(0);
-                var child = reader.GetInt32(1);
-                if (!descendants.TryGetValue(parent, out var set)) descendants[parent] = set = [];
-                set.Add(child);
-            }
-
-        await reader.CloseAsync();
-
-        _session = new UserSession
-        {
-            UserId = info.UserId, Username = username, GsmNo = info.GsmNo,
-            PrincipalTypeId = principalTypeId, TierId = tierId, AppId = appId,
-            CeilingLevel = ceilingLevel, UserKey = userKey,
-            ScopeGrants = grants, Descendants = descendants,
-            ActiveScopeId = null, WorkingSet = []
-        };
-
-        _scopeInfo = await LoadScopeInfo();   // scope tür+ad sözlüğü (bir kez)
+        _scopeInfo = await _engine.LoadScopeCatalogAsync();
+        _ownedScopes = await _engine.GetOwnedScopeIdsAsync(_session.UserId);   // F2: veri-güdümlü sahiplik
 
         UpdateSessionPanel();
         BuildHierarchyTree();
@@ -132,33 +90,28 @@ public partial class MainForm : Form
     private void UpdateSessionPanel()
     {
         if (_session is null) return;
-        var isSys = _session.TierId < 0;
-        var sp = SystemPrincipleRegistry.Resolve(_session.PrincipalTypeId);
+        var sp = _session.SystemPrinciple;   // aktif scope yok → login principal
         lblSid.Text = $"User ID: {_session.UserId}";
         lblSuser.Text = $"Kullanıcı: {_session.Username} (GSM: {_session.GsmNo})";
         lblSprincipal.Text = $"Principal: {_session.PrincipalTypeId} ({sp?.Code ?? "domain"})";
         lblStier.Text = $"Tier: {_session.TierId} | App: {_session.AppId}";
         lblSceiling.Text = $"Ceiling: {_session.CeilingLevel}";
-        lblSguard.Text = $"Guard Bypass: {(sp?.BypassGuard == true ? "EVET" : "HAYIR")}";
-        lblSreadonly.Text = $"Read Only: {(sp is { CanWrite: false } ? "EVET" : "HAYIR")}";
-        lblSsystem.Text = $"System User: {(isSys ? "EVET" : "HAYIR")}";
+        lblSguard.Text = $"Guard Bypass: {(_session.HasGuardBypass ? "EVET" : "HAYIR")}";
+        lblSreadonly.Text = $"Read Only: {(_session.IsReadOnly ? "EVET" : "HAYIR")}";
+        lblSsystem.Text = $"System User: {(_session.IsSystemUser ? "EVET" : "HAYIR")}";
         lblSactive.Text = "Active Scope: (seçin)";
         lblSworking.Text = "Working Set: -";
     }
 
-    // ══════════════════════════════════════ Sahiplik ağacı = SADECE owned scope'lar
-    //  owned = kullanıcının DOĞRUDAN domain (tenant) grant'leri (PRINCIPAL_TYPE_ID > 0).
-    //  cross-scope erişimi (<0: scope_root/scope_public) owned DEĞİL → "Erişilebilir Scope'lar" gridinde görünür.
-    //  (Not: veride ayrı owner sinyali yok — org/property CREATOR_USER_ID hepsinde -1.)
+    // ══════════════════════════════════════ Sahiplik ağacı = owned (AuthEngine.OwnedScopeIds — CLI ile aynı kural)
     private void BuildHierarchyTree()
     {
         tvHierarchy.Nodes.Clear();
         dgvItemDetail.DataSource = null;
         if (_session is null) return;
 
-        HashSet<int> owned = [.. _session.ScopeGrants.Values
-            .Where(g => g.Source == "direct" && g.PrincipalTypeId > 0)
-            .Select(g => g.ScopeId)];
+        HashSet<int> owned = _ownedScopes;   // F2: veri-güdümlü (core.tblScope.OWNER_USER_ID)
+        var placed = new HashSet<int>();
 
         var rootNode = new TreeNode($"[{_session.Username}] sahip olunan scope'lar ({owned.Count})")
         {
@@ -174,7 +127,7 @@ public partial class MainForm : Form
             return;
         }
 
-        // org + property yapısal verisi (reader'lar sırayla kapanır → MARS yok)
+        // org + property yapısal verisi (display metadata — sequential reader, MARS yok)
         var orgData = new List<(int OrgId, int ScopeId, string Name)>();
         var propData = new List<(int PropId, int ScopeId, string Name, int? OwnerOrgId)>();
         using (var conn = new SqlConnection(ConnectionString))
@@ -198,6 +151,7 @@ public partial class MainForm : Form
             AnnotateGrant(node, scopeId);
             rootNode.Nodes.Add(node);
             orgNodes[scopeId] = node;
+            placed.Add(scopeId);
         }
 
         foreach (var (propId, scopeId, name, ownerOrgId) in propData)
@@ -209,6 +163,22 @@ public partial class MainForm : Form
                 orgNode.Nodes.Add(node);
             else
                 rootNode.Nodes.Add(node);
+            placed.Add(scopeId);
+        }
+
+        // owned ama org/property OLMAYAN scope'lar (individual, root_scope, vs.) → standalone node
+        // (F2: individual <-> scope artık görünür)
+        foreach (var scopeId in owned)
+        {
+            if (placed.Contains(scopeId)) continue;
+            var (type, name) = _scopeInfo.TryGetValue(scopeId, out var si) ? si : ("scope", $"scope {scopeId}");
+            var node = new TreeNode(FormatScopeLabel(type.ToUpperInvariant(), name, scopeId))
+            {
+                ForeColor = Color.DarkSlateGray,
+                Tag = new ScopeNodeInfo(scopeId, type, 0, "owned scope")
+            };
+            AnnotateGrant(node, scopeId);
+            rootNode.Nodes.Add(node);
         }
 
         rootNode.ExpandAll();
@@ -224,7 +194,7 @@ public partial class MainForm : Form
 
     private static string ResolvePrincipalCode(int principalTypeId)
     {
-        var sp = SystemPrincipleRegistry.Resolve(principalTypeId);
+        var sp = SystemPrincipleRegistry.Resolve(principalTypeId);   // core
         return sp?.Code ?? $"domain({principalTypeId})";
     }
 
@@ -272,7 +242,7 @@ public partial class MainForm : Form
         }
     }
 
-    // ══════════════════════════════════════ Erişilebilir scope grid (core.UserAccessibleScopes TVF, read-then-enrich)
+    // ══════════════════════════════════════ Erişilebilir grid = login'in ScopeGrants'ı (core.UserAccessibleScopes = CLI ile AYNI veri)
     private void UpdateScopesGrid()
     {
         if (_session is null) { dgvScopes.DataSource = null; lblAccessPath.Text = ""; return; }
@@ -285,57 +255,14 @@ public partial class MainForm : Form
         dt.Columns.Add("Tavan (ceiling)", typeof(string));
         dt.Columns.Add("Kaynak", typeof(string));
 
-        // 1) TVF sonuçlarını listeye al (reader kapanır) — sonra zenginleştir. Nested reader YOK → MARS hatası yok.
-        var rows = new List<ScopeGrant>();
-        using (var conn = new SqlConnection(ConnectionString))
-        {
-            conn.Open();
-            using var cmd = new SqlCommand(
-                "SET QUOTED_IDENTIFIER ON; SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, CEILING_LEVEL, SOURCE FROM core.UserAccessibleScopes(@userId) ORDER BY SCOPE_ID", conn);
-            cmd.Parameters.AddWithValue("@userId", _session.UserId);
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-                rows.Add(new ScopeGrant(r.GetInt32(0), r.GetInt32(1),
-                    r.IsDBNull(2) ? "none" : r.GetString(2),
-                    r.IsDBNull(3) ? "direct" : r.GetString(3)));
-        }
-
-        // 2) preloaded _scopeInfo ile metinsel tür+ad ekle
-        foreach (var g in rows)
+        foreach (var g in _session.ScopeGrants.Values.OrderBy(x => x.ScopeId))
         {
             var (type, name) = _scopeInfo.TryGetValue(g.ScopeId, out var si) ? si : ("?", $"scope {g.ScopeId}");
             dt.Rows.Add(g.ScopeId, type, name, ResolvePrincipalCode(g.PrincipalTypeId), g.CeilingLevel, g.Source);
         }
 
         dgvScopes.DataSource = dt;
-        lblAccessPath.Text = rows.Count == 0 ? "(erişilebilir scope yok)" : "Bir satır seçin → erişim yolu (pattern) burada görünür.";
-    }
-
-    // tüm scope'ların tür+ad sözlüğü (tek connection, sıralı reader)
-    private async Task<Dictionary<int, (string Type, string Name)>> LoadScopeInfo()
-    {
-        var map = new Dictionary<int, (string, string)>();
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        await using (var cmd = new SqlCommand(
-            "SET QUOTED_IDENTIFIER ON; SELECT s.SCOPE_ID, st.CODE FROM core.tblScope s LEFT JOIN core.conScopeType st ON st.SCOPE_TYPE = s.SCOPE_TYPE WHERE s.DELETED=0", conn))
-        await using (var r = await cmd.ExecuteReaderAsync())
-            while (await r.ReadAsync())
-            {
-                var id = r.GetInt32(0);
-                map[id] = (r.IsDBNull(1) ? "scope" : r.GetString(1), $"scope {id}");
-            }
-
-        await using (var cmd = new SqlCommand("SET QUOTED_IDENTIFIER ON; SELECT SCOPE_ID, ORG_NAME FROM core.tblOrganization WHERE DELETED=0", conn))
-        await using (var r = await cmd.ExecuteReaderAsync())
-            while (await r.ReadAsync()) map[r.GetInt32(0)] = ("organization", r.GetString(1));
-
-        await using (var cmd = new SqlCommand("SET QUOTED_IDENTIFIER ON; SELECT SCOPE_ID, PROP_NAME FROM core.tblProperty WHERE DELETED=0", conn))
-        await using (var r = await cmd.ExecuteReaderAsync())
-            while (await r.ReadAsync()) map[r.GetInt32(0)] = ("property", r.GetString(1));
-
-        return map;
+        lblAccessPath.Text = _session.ScopeGrants.Count == 0 ? "(erişilebilir scope yok)" : "Bir satır seçin → erişim yolu (pattern) burada görünür.";
     }
 
     // ══════════════════════════════════════ Grid seçim → erişim yolu (pattern)
@@ -374,106 +301,9 @@ public partial class MainForm : Form
     }
 }
 
-// ══════════════════════════════════════ Modeller
+// ══════════════════════════════════════ UI-özel modeller (auth modeli core'da)
 public record UserInfo(int UserId, string Username, long GsmNo, int PrincipalTypeId, string PrincipalCode, short TierId);
 
-public sealed class UserSession
-{
-    public int UserId { get; init; }
-    public string Username { get; init; } = string.Empty;
-    public long GsmNo { get; init; }
-    public int PrincipalTypeId { get; init; }
-    public short TierId { get; init; }
-    public short AppId { get; init; }
-    public string CeilingLevel { get; init; } = string.Empty;
-    public long UserKey { get; init; }
-    public Dictionary<int, ScopeGrant> ScopeGrants { get; init; } = [];
-    public Dictionary<int, HashSet<int>> Descendants { get; init; } = [];
-    public int? ActiveScopeId { get; set; }
-    public HashSet<int> WorkingSet { get; set; } = [];
-}
-
-public record ScopeGrant(int ScopeId, int PrincipalTypeId, string CeilingLevel, string Source);
-
-// ══════════════════════════════════════ ISystemPrinciple (MVP kopyası)
-public enum SystemReach { GrantedScopes = 0, AllScopes = 1 }
-
-public interface ISystemPrinciple
-{
-    int PrincipalTypeId { get; }
-    string Code { get; }
-    SystemReach Reach { get; }
-    bool BypassGuard { get; }
-    bool CanWrite { get; }
-    bool PublicOnly { get; }
-}
-
-public sealed record SystemRootPrinciple : ISystemPrinciple
-{
-    public int PrincipalTypeId => -65536;
-    public string Code => "system_root";
-    public SystemReach Reach => SystemReach.AllScopes;
-    public bool BypassGuard => true;
-    public bool CanWrite => true;
-    public bool PublicOnly => false;
-}
-
-public sealed record SystemServicePrinciple : ISystemPrinciple
-{
-    public int PrincipalTypeId => -131072;
-    public string Code => "system_service";
-    public SystemReach Reach => SystemReach.AllScopes;
-    public bool BypassGuard => false;
-    public bool CanWrite => true;
-    public bool PublicOnly => false;
-}
-
-public sealed record SystemPublicPrinciple : ISystemPrinciple
-{
-    public int PrincipalTypeId => -196608;
-    public string Code => "system_public";
-    public SystemReach Reach => SystemReach.AllScopes;
-    public bool BypassGuard => false;
-    public bool CanWrite => false;
-    public bool PublicOnly => true;
-}
-
-public sealed record ScopeRootPrinciple : ISystemPrinciple
-{
-    public int PrincipalTypeId => -262144;
-    public string Code => "scope_root";
-    public SystemReach Reach => SystemReach.GrantedScopes;
-    public bool BypassGuard => false;
-    public bool CanWrite => true;
-    public bool PublicOnly => false;
-}
-
-public sealed record ScopePublicPrinciple : ISystemPrinciple
-{
-    public int PrincipalTypeId => -327680;
-    public string Code => "scope_public";
-    public SystemReach Reach => SystemReach.GrantedScopes;
-    public bool BypassGuard => false;
-    public bool CanWrite => false;
-    public bool PublicOnly => true;
-}
-
-public static class SystemPrincipleRegistry
-{
-    private static readonly Dictionary<int, ISystemPrinciple> Map = new()
-    {
-        [-65536] = new SystemRootPrinciple(),
-        [-131072] = new SystemServicePrinciple(),
-        [-196608] = new SystemPublicPrinciple(),
-        [-262144] = new ScopeRootPrinciple(),
-        [-327680] = new ScopePublicPrinciple(),
-    };
-
-    public static ISystemPrinciple? Resolve(int principalTypeId) =>
-        Map.TryGetValue(principalTypeId, out var p) ? p : null;
-}
-
-// ══════════════════════════════════════ Tree node modelleri
 public record ScopeNodeInfo(int ScopeId, string ScopeTypeCode, int ScopeTypeId, string Description);
 public record OrgNodeInfo(int OrgId, int ScopeId, string Name);
 public record PropNodeInfo(int PropId, int ScopeId, string Name, int? OwnerOrgId);

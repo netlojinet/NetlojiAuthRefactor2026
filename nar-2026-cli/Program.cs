@@ -7,6 +7,9 @@ internal static class Program
     private const string ConnectionString =
         "Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
 
+    // Paylaşılan auth motoru (nar-2026-core) — login + erişim çözümü buradan. CLI == GUI.
+    private static readonly AuthEngine Engine = new(ConnectionString);
+
     static async Task Main(string[] args)
     {
         Console.WriteLine("=== Netloji Auth Refactor 2026 — MVP ===");
@@ -190,85 +193,9 @@ internal static class Program
             StartMockSession(context);
     }
 
-    /// <summary>
-    /// Login akışı — framework login methodu core.ssp_CheckForLogin (yeni-model) üzerinden.
-    /// GSM ile login eder; Result1 = login principal header, Result2 = matrix-tabanlı scope grant'leri.
-    /// Effective principal artık scope'a bağlamsal (matrix), global değil.
-    /// </summary>
-    private static async Task<DummyUserContext?> BuildUserContext(SqlConnection connection, int userId)
-    {
-        // Login GSM-tabanlı (framework deseni). Seçilen userId'nin GSM'i alınır.
-        long gsmNo;
-        await using (var gcmd = new SqlCommand(
-            "SET QUOTED_IDENTIFIER ON; SELECT GSM_NO FROM core.tblUser WHERE USER_ID = @userId AND DELETED = 0", connection))
-        {
-            gcmd.Parameters.AddWithValue("@userId", userId);
-            var g = await gcmd.ExecuteScalarAsync();
-            if (g is null or DBNull) { Console.WriteLine($"Kullanıcı bulunamadı: {userId}"); return null; }
-            gsmNo = Convert.ToInt64(g);
-        }
-
-        await using var cmd = new SqlCommand(
-            "SET QUOTED_IDENTIFIER ON; EXEC core.ssp_CheckForLogin @GSM_NO = @gsm", connection);
-        cmd.Parameters.AddWithValue("@gsm", gsmNo);
-        await using var reader = await cmd.ExecuteReaderAsync();
-
-        // Result 1: login principal header
-        if (!await reader.ReadAsync())
-        {
-            Console.WriteLine($"Login başarısız (GSM={gsmNo}).");
-            return null;
-        }
-
-        var username = reader.GetString(reader.GetOrdinal("USERNAME"));
-        var principalTypeId = reader.GetInt32(reader.GetOrdinal("PRINCIPAL_TYPE_ID"));
-        var tierId = reader.IsDBNull(reader.GetOrdinal("TIER_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("TIER_ID"));
-        var appId = reader.IsDBNull(reader.GetOrdinal("APP_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("APP_ID"));
-        var ceilingLevel = reader.IsDBNull(reader.GetOrdinal("CEILING_LEVEL")) ? "none" : reader.GetString(reader.GetOrdinal("CEILING_LEVEL"));
-
-        // Result 2: matrix-tabanlı scope grant'leri (scope → bağlamsal principal)
-        var grants = new Dictionary<int, ScopeGrant>();
-        if (await reader.NextResultAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                var scopeId = reader.GetInt32(0);
-                grants[scopeId] = new ScopeGrant(
-                    scopeId,
-                    reader.GetInt32(1),
-                    reader.IsDBNull(2) ? "none" : reader.GetString(2),
-                    reader.IsDBNull(3) ? "direct" : reader.GetString(3));
-            }
-        }
-
-        // Result 3: yapısal alt iniş (parent org-scope → child property-scope) §5.2
-        var descendants = new Dictionary<int, HashSet<int>>();
-        if (await reader.NextResultAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                var parent = reader.GetInt32(0);
-                var child = reader.GetInt32(1);
-                if (!descendants.TryGetValue(parent, out var set))
-                    descendants[parent] = set = [];
-                set.Add(child);
-            }
-        }
-
-        return new DummyUserContext
-        {
-            UserId = userId,
-            Username = username,
-            PrincipalTypeId = principalTypeId,
-            TierId = tierId,
-            AppId = appId,
-            CeilingLevel = ceilingLevel,
-            ScopeGrants = grants,
-            Descendants = descendants,
-            ActiveScopeId = null,
-            WorkingSet = []
-        };
-    }
+    /// <summary>Login → paylaşılan AuthEngine (core.ssp_CheckForLogin). CLI ve GUI AYNI motoru kullanır.</summary>
+    private static Task<DummyUserContext?> BuildUserContext(SqlConnection connection, int userId)
+        => Engine.LoginByUserIdAsync(userId);
 
     // NOT: Eski GetAccessibleScopes (C# tarafı reach hesabı) kaldırıldı.
     // Reach artık SQL'de: core.UserAccessibleScopes TVF (matrix-tabanlı, per-scope principal),
@@ -344,42 +271,11 @@ internal static class Program
         RunDemoDataMenu(context).GetAwaiter().GetResult();
     }
 
-    /// <summary>
-    /// Working set hesaplar — active scope + descendants ∩ accessible.
-    /// Anti-escalation: working_set ⊆ accessible daima.
-    /// </summary>
-    private static HashSet<int> ComputeWorkingSet(DummyUserContext context)
-    {
-        if (context.ActiveScopeId == null)
-            return [];
+    /// <summary>Working set → paylaşılan AuthEngine (§5.2).</summary>
+    private static HashSet<int> ComputeWorkingSet(DummyUserContext context) => AuthEngine.ComputeWorkingSet(context);
 
-        // §5.2: working_set = ({active} ∪ descendants(active)) ∩ accessible
-        var active = context.ActiveScopeId.Value;
-        var workingSet = new HashSet<int> { active };
-        if (context.Descendants.TryGetValue(active, out var kids))
-            workingSet.UnionWith(kids);
-        workingSet.IntersectWith(context.AccessibleScopes);
-        return workingSet;
-    }
-
-    /// <summary>
-    /// Veri filtresi çözümü → (scopeIds, publicOnly).
-    /// ISystemPrinciple reach=AllScopes (root/service/public) → tüm scope'lar (NULL).
-    /// GrantedScopes (scope_root/public) ve domain user → working set / accessible.
-    /// publicOnly → public tier'lar yalnız IS_PUBLIC=1.
-    /// </summary>
-    private static (string? scopeIds, bool publicOnly) ResolveDataFilter(DummyUserContext context)
-    {
-        var publicOnly = context.SystemPrinciple?.PublicOnly ?? false;
-
-        if (context.SystemPrinciple is { Reach: SystemReach.AllScopes })
-            return (null, publicOnly);
-
-        var scopes = context.WorkingSet.Count > 0 ? context.WorkingSet : context.AccessibleScopes;
-        if (scopes.Count == 0)
-            return ("-2147483648", publicOnly); // eşleşmeyen sentinel → hiçbir satır
-        return (string.Join(",", scopes), publicOnly);
-    }
+    /// <summary>Veri filtresi → paylaşılan AuthEngine.</summary>
+    private static (string? scopeIds, bool publicOnly) ResolveDataFilter(DummyUserContext context) => AuthEngine.ResolveDataFilter(context);
 
     /// <summary>Stage 3 self-test — ISystemPrinciple hardcoded tavanlarını doğrular (1-2 test).</summary>
     private static async Task Stage3SelfTest(SqlConnection connection)

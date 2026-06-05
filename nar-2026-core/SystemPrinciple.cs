@@ -1,31 +1,26 @@
-namespace NetlojiAuthRefactor2026;
+namespace Nar2026.Core;
 
 /// <summary>Sistem principal'inin erişim genişliği (Kat1 reach — §5.3).</summary>
 public enum SystemReach
 {
-    /// <summary>Yalnız grant'li scope(lar) — scope_root / scope_public.</summary>
-    GrantedScopes = 0,
-
-    /// <summary>Tüm scope'lar — system_root / system_service / system_public.</summary>
-    AllScopes = 1
+    GrantedScopes = 0,  // scope_root / scope_public
+    AllScopes = 1       // system_root / system_service / system_public
 }
 
 /// <summary>
-/// ≤0 sistem principal'ları için HARDCODED Kat1 tavanı.
-/// Veriyle/rolle DEĞİŞTİRİLEMEZ; kapalı küme; conPrincipalType kataloğu ile hizalı.
-/// Anayasa §2 (Kat1 tavan) + §5.3 (reach kısa devresi).
+/// ≤0 sistem principal'ları için HARDCODED Kat1 tavanı. Veriyle/rolle DEĞİŞTİRİLEMEZ.
+/// conPrincipalType kataloğu ile hizalı (Anayasa §2 Kat1 + §5.3 reach).
 /// </summary>
 public interface ISystemPrinciple
 {
     int PrincipalTypeId { get; }
     string Code { get; }
     SystemReach Reach { get; }
-    bool BypassGuard { get; }   // yalnız system_root: tüm guard'ları atlar
-    bool CanWrite { get; }      // public tier'lar yazamaz
-    bool PublicOnly { get; }    // public tier'lar yalnız IS_PUBLIC=1 okur
+    bool BypassGuard { get; }
+    bool CanWrite { get; }
+    bool PublicOnly { get; }
 }
 
-/// <summary>system_root (-65536): sınırsız, guard bypass.</summary>
 public sealed record SystemRootPrinciple : ISystemPrinciple
 {
     public int PrincipalTypeId => (int)SystemPrincipalType.SystemRoot;
@@ -36,7 +31,6 @@ public sealed record SystemRootPrinciple : ISystemPrinciple
     public bool PublicOnly => false;
 }
 
-/// <summary>system_service (-131072): tüm scope'lar, guard'a tabi (job-darlık Faz 2 / APP_ID).</summary>
 public sealed record SystemServicePrinciple : ISystemPrinciple
 {
     public int PrincipalTypeId => (int)SystemPrincipalType.SystemService;
@@ -47,7 +41,6 @@ public sealed record SystemServicePrinciple : ISystemPrinciple
     public bool PublicOnly => false;
 }
 
-/// <summary>system_public (-196608): tüm scope'lar ama read-only + IS_PUBLIC=1.</summary>
 public sealed record SystemPublicPrinciple : ISystemPrinciple
 {
     public int PrincipalTypeId => (int)SystemPrincipalType.SystemPublic;
@@ -58,7 +51,6 @@ public sealed record SystemPublicPrinciple : ISystemPrinciple
     public bool PublicOnly => true;
 }
 
-/// <summary>scope_root (-262144): yalnız grant'li scope içinde tam yetki.</summary>
 public sealed record ScopeRootPrinciple : ISystemPrinciple
 {
     public int PrincipalTypeId => (int)SystemPrincipalType.ScopeRoot;
@@ -69,7 +61,6 @@ public sealed record ScopeRootPrinciple : ISystemPrinciple
     public bool PublicOnly => false;
 }
 
-/// <summary>scope_public (-327680): yalnız grant'li scope'un public vitrini (read-only + IS_PUBLIC).</summary>
 public sealed record ScopePublicPrinciple : ISystemPrinciple
 {
     public int PrincipalTypeId => (int)SystemPrincipalType.ScopePublic;
@@ -80,10 +71,7 @@ public sealed record ScopePublicPrinciple : ISystemPrinciple
     public bool PublicOnly => true;
 }
 
-/// <summary>
-/// Hardcoded sistem principal kataloğu — PRINCIPAL_TYPE_ID → ISystemPrinciple.
-/// Kapalı küme; gerçekte DAL enum'undan üretilir (Anayasa §1.2). MVP'de elle sabit.
-/// </summary>
+/// <summary>Hardcoded sistem principal kataloğu — PRINCIPAL_TYPE_ID → ISystemPrinciple (kapalı küme).</summary>
 public static class SystemPrincipleRegistry
 {
     private static readonly Dictionary<int, ISystemPrinciple> Map = new()
@@ -93,13 +81,11 @@ public static class SystemPrincipleRegistry
         [(int)SystemPrincipalType.SystemPublic]  = new SystemPublicPrinciple(),
         [(int)SystemPrincipalType.ScopeRoot]     = new ScopeRootPrinciple(),
         [(int)SystemPrincipalType.ScopePublic]   = new ScopePublicPrinciple(),
-        // NOT: system_service_trash (-131071, APP_ID=1) = service varyantı; job-darlık Faz 2.
     };
 
     /// <summary>Sistem principal'i çöz; sistem değilse (≥0 / bilinmeyen) null → domain yolu.</summary>
     public static ISystemPrinciple? Resolve(int principalTypeId) =>
         Map.TryGetValue(principalTypeId, out var p) ? p : null;
 
-    /// <summary>Tüm hardcoded sistem principal'ları.</summary>
     public static IReadOnlyCollection<ISystemPrinciple> All => Map.Values;
 }
