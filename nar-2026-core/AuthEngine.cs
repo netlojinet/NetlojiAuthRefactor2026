@@ -154,4 +154,27 @@ public sealed class AuthEngine(string connectionString)
 
         return map;
     }
+
+    /// <summary>
+    /// §1.2: principal yetenek kataloğunu DB'den (conPrincipalType) yükle → SystemPrincipleRegistry.
+    /// C# elle 5 record tutmaz; tek doğruluk kaynağı DB. App başlangıcında bir kez çağrılır.
+    /// </summary>
+    public async Task LoadCatalogAsync()
+    {
+        var list = new List<ISystemPrinciple>();
+        await using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "SET QUOTED_IDENTIFIER ON; SELECT PRINCIPAL_TYPE_ID, CODE, REACH_LEVEL, BYPASS_GUARD, CAN_WRITE, PUBLIC_ONLY FROM core.conPrincipalType WHERE DELETED = 0", conn);
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            var reachStr = r.IsDBNull(2) ? "granted" : r.GetString(2);
+            var reach = reachStr == "all" ? SystemReach.AllScopes
+                      : reachStr == "none" ? SystemReach.None
+                      : SystemReach.GrantedScopes;
+            list.Add(new CatalogPrinciple(r.GetInt32(0), r.GetString(1), reach, r.GetBoolean(3), r.GetBoolean(4), r.GetBoolean(5)));
+        }
+        SystemPrincipleRegistry.Load(list);
+    }
 }

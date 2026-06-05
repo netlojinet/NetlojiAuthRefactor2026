@@ -22,6 +22,9 @@ internal static class Program
         // --- Script runner ---
         await RunScripts(connection);
 
+        // --- Principal kataloğunu DB'den yükle (§1.2: tek doğruluk kaynağı) ---
+        await Engine.LoadCatalogAsync();
+
         // --- Demo menu ---
         Console.WriteLine();
         await RunDemoMenu(connection);

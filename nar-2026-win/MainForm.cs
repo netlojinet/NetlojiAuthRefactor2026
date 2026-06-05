@@ -25,6 +25,7 @@ public partial class MainForm : Form
     private async void Form1_Load(object? sender, EventArgs e)
     {
         Log("Uygulama başlatılıyor...");
+        await _engine.LoadCatalogAsync();   // §1.2: principal kataloğu DB'den (tek doğruluk kaynağı)
         await LoadUsers();
         Log("Kullanıcılar yüklendi. Bir kullanıcı seçin.");
     }
