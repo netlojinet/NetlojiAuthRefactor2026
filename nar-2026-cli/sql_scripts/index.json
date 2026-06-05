@@ -1,0 +1,154 @@
+{
+    "name": "NetlojiAuthRefactor2026",
+    "version": "1.2.0",
+    "created_at": "2026-06-04T15:00:00+03:00",
+    "updated_at": "2026-06-04T16:40:00+03:00",
+    "description": "Netloji Core Auth refactor MVP. Soft FKs, conPrincipalType computed PK, 3 hash functions, tblUser with GSM_NO + TIER_ID + APP_ID.",
+    "schema": "core",
+    "target_database": "NetlojiAuthRefactor2026",
+    "execution_order": "sequential (001 → 009)",
+    "v1_2_changes": [
+        "conPrincipalType: PRINCIPAL_TYPE_ID = computed via MvpDummyPrincipalHashFull(TIER_ID, APP_ID), PK = (TIER_ID, APP_ID)",
+        "tblUser: +GSM_NO BIGINT, +TIER_ID SMALLINT, +APP_ID SMALLINT, PRINCIPAL_TYPE_ID computed, USER_KEY = MvpDummyUserHashFull(TIER_ID, APP_ID, USER_ID)",
+        "MvpDummyPrincipalHashFull(@tierId, @appId) → INT: tierId × 65536 + appId",
+        "MvpDummyUserHashFull(@tierId, @appId, @userId) → BIGINT: tier×2^48 + app×2^32 + userId"
+    ],
+    "scripts": [
+        {
+            "id": "001",
+            "file": "001-create-schema.sql",
+            "description": "Create core schema.",
+            "type": "schema",
+            "dependencies": [],
+            "idempotent": true
+        },
+        {
+            "id": "002",
+            "file": "002-tblScope.sql",
+            "description": "core.tblScope — Kanonik scope sicili.",
+            "type": "table",
+            "dependencies": ["001"],
+            "idempotent": true
+        },
+        {
+            "id": "003",
+            "file": "003-hash-functions.sql",
+            "description": "dbo.MvpDummyHash, dbo.MvpDummyPrincipalHashFull, dbo.MvpDummyUserHashFull. Drops dependent tables first.",
+            "type": "function",
+            "dependencies": ["001"],
+            "idempotent": true
+        },
+        {
+            "id": "004",
+            "file": "004-conPrincipalType.sql",
+            "description": "core.conPrincipalType — PK=(TIER_ID,APP_ID), PRINCIPAL_TYPE_ID=computed via MvpDummyPrincipalHashFull.",
+            "type": "table",
+            "dependencies": ["001", "003"],
+            "idempotent": true
+        },
+        {
+            "id": "005",
+            "file": "005-seed-principals.sql",
+            "description": "Seed 10 system principals. MERGE on (TIER_ID, APP_ID), idempotent.",
+            "type": "seed",
+            "dependencies": ["004"],
+            "idempotent": true
+        },
+        {
+            "id": "006",
+            "file": "006-tblUser.sql",
+            "description": "core.tblUser — GSM_NO, TIER_ID, APP_ID, PRINCIPAL_TYPE_ID(computed), USER_KEY(computed).",
+            "type": "table",
+            "dependencies": ["001", "003"],
+            "idempotent": true
+        },
+        {
+            "id": "007",
+            "file": "007-tblOrganization.sql",
+            "description": "core.tblOrganization — Soft FK to tblScope.",
+            "type": "table",
+            "dependencies": ["001", "002"],
+            "idempotent": true
+        },
+        {
+            "id": "008",
+            "file": "008-tblProperty.sql",
+            "description": "core.tblProperty — Soft FK to tblScope, tblOrganization.",
+            "type": "table",
+            "dependencies": ["001", "002", "007"],
+            "idempotent": true
+        },
+        {
+            "id": "009",
+            "file": "009-tblUserScopePrincipalMatrix.sql",
+            "description": "core.tblUserScopePrincipalMatrix — User ↔ Scope ↔ Principal grant matrix. Soft FKs.",
+            "type": "table",
+            "dependencies": ["001", "002", "006", "004"],
+            "idempotent": true
+        },
+        {
+            "id": "010",
+            "file": "010-seed-system-users.sql",
+            "description": "Seed 5 system users (USER_ID = TIER_ID) + 2 founders.",
+            "type": "seed",
+            "dependencies": ["006", "004"],
+            "idempotent": true
+        },
+        {
+            "id": "011",
+            "file": "011-conScopeType.sql",
+            "description": "core.conScopeType — SCOPE_TYPE PK with seed data.",
+            "type": "table",
+            "dependencies": ["001"],
+            "idempotent": true
+        },
+        {
+            "id": "012",
+            "file": "012-seed-root-scope.sql",
+            "description": "Seed root_scope in tblScope (SCOPE_TYPE=255, CREATOR=-1).",
+            "type": "seed",
+            "dependencies": ["011", "002", "006"],
+            "idempotent": true
+        },
+        {
+            "id": "013",
+            "file": "013-tblDemoData.sql",
+            "description": "core.tblDemoData — Framework-standard demo table with full audit columns.",
+            "type": "table",
+            "dependencies": ["001"],
+            "idempotent": true
+        },
+        {
+            "id": "014",
+            "file": "014-seed-user-scope-matrix.sql",
+            "description": "Seed 5 system users + 2 founders in tblUserScopePrincipalMatrix. SCOPE_ID=-1.",
+            "type": "seed",
+            "dependencies": ["009", "010", "012"],
+            "idempotent": true
+        },
+        {
+            "id": "015",
+            "file": "015-sp-DemoData.sql",
+            "description": "dbo.sp_DemoData_Insert/Update/Delete/List — CRUD stored procedures for tblDemoData.",
+            "type": "procedure",
+            "dependencies": ["013"],
+            "idempotent": true
+        },
+        {
+            "id": "016",
+            "file": "016-seed-demo-users.sql",
+            "description": "Seed 3 demo users (individual/tenant_woo/tenant_wto) + scopes + org/property hierarchy.",
+            "type": "seed",
+            "dependencies": ["006", "002", "009", "011", "007", "008"],
+            "idempotent": true
+        },
+        {
+            "id": "017",
+            "file": "017-seed-demo-data.sql",
+            "description": "Seed 4 demo data records with different user+scope combinations and proper audit.",
+            "type": "seed",
+            "dependencies": ["013", "015", "016"],
+            "idempotent": true
+        }
+    ]
+}

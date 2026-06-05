@@ -1,0 +1,43 @@
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+SET NOCOUNT ON;
+
+-- system users: kendi PRINCIPAL_TYPE_ID'leri ile SCOPE_ID = -1
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = -5 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-5, -1, -327680, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = -4 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-4, -1, -262144, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = -3 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-3, -1, -196608, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = -2 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-2, -1, -131072, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = -1 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-1, -1, -65536, -1, -1);
+
+-- founders: system_root principal, SCOPE_ID = -1
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = 1 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (1, -1, -65536, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUserScopePrincipalMatrix WHERE USER_ID = 2 AND SCOPE_ID = -1)
+    INSERT INTO core.tblUserScopePrincipalMatrix (USER_ID, SCOPE_ID, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (2, -1, -65536, -1, -1);
+GO
+
+SET QUOTED_IDENTIFIER ON;
+SELECT m.USER_ID, u.USERNAME, m.SCOPE_ID, m.PRINCIPAL_TYPE_ID, pt.CODE AS PRINCIPAL_CODE
+FROM core.tblUserScopePrincipalMatrix m
+JOIN core.tblUser u ON m.USER_ID = u.USER_ID
+LEFT JOIN core.conPrincipalType pt ON m.PRINCIPAL_TYPE_ID = pt.PRINCIPAL_TYPE_ID
+WHERE m.DELETED = 0
+ORDER BY m.USER_ID;
+GO

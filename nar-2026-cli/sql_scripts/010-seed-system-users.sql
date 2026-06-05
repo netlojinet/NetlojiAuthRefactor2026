@@ -1,0 +1,41 @@
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+SET NOCOUNT ON;
+
+SET IDENTITY_INSERT core.tblUser ON;
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = -1)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-1, N'system_root_user', N'system_root@netloji.local', N'System Root User', 7382910465218, -65536, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = -2)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-2, N'system_service_default_user', N'system_service@netloji.local', N'System Service Default User', 4827361092847, -131072, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = -3)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-3, N'system_public_user', N'system_public@netloji.local', N'System Public User', 2648193750284, -196608, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = -4)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-4, N'scope_root_user', N'scope_root@netloji.local', N'Scope Root User', 5930182746103, -262144, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = -5)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (-5, N'scope_public_user', N'scope_public@netloji.local', N'Scope Public User', 8264019375612, -327680, -1, -1);
+
+-- Reserved positive real users (founders)
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = 1)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (1, N'founder_1', N'founder_1@netloji.local', N'Founder 1', 905304158501, -65536, -1, -1);
+
+IF NOT EXISTS (SELECT 1 FROM core.tblUser WHERE USER_ID = 2)
+    INSERT INTO core.tblUser (USER_ID, USERNAME, EMAIL, DISPLAY_NAME, GSM_NO, PRINCIPAL_TYPE_ID, CREATOR_USER_ID, EDITOR_USER_ID)
+    VALUES (2, N'founder_2', N'founder_2@netloji.local', N'Founder 2', 905304158502, -65536, -1, -1);
+
+SET IDENTITY_INSERT core.tblUser OFF;
+GO
+
+SET QUOTED_IDENTIFIER ON;
+SELECT USER_ID, USERNAME, PRINCIPAL_TYPE_ID, USER_KEY FROM core.tblUser ORDER BY USER_ID;
+GO
