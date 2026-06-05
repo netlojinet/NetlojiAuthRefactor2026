@@ -113,13 +113,14 @@ public sealed class AuthEngine(string connectionString)
     }
 
     /// <summary>
-    /// Veri filtresi → (scopeIds, publicOnly). reach=AllScopes → tüm scope (NULL);
-    /// GrantedScopes/domain → working set / accessible; publicOnly → IS_PUBLIC=1.
+    /// Veri filtresi → (scopeIds, publicOnly). Reach (hangi scope'lar) artık TVF'de
+    /// (UserAccessibleScopes — reach='all' tüm evreni döner). Burada yalnız §5.3 BYPASS kısa devresi:
+    /// system_root guard'ı tümüyle atlar (aktif scope dahil) → tüm data. publicOnly → IS_PUBLIC=1.
     /// </summary>
     public static (string? scopeIds, bool publicOnly) ResolveDataFilter(AuthContext ctx)
     {
         var publicOnly = ctx.SystemPrinciple?.PublicOnly ?? false;
-        if (ctx.SystemPrinciple is { Reach: SystemReach.AllScopes })
+        if (ctx.HasGuardBypass)   // yalnız system_root: tam bypass
             return (null, publicOnly);
         var scopes = ctx.WorkingSet.Count > 0 ? ctx.WorkingSet : ctx.AccessibleScopes;
         if (scopes.Count == 0) return ("-2147483648", publicOnly); // eşleşmeyen sentinel

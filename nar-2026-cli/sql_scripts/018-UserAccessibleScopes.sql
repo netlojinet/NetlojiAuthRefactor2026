@@ -2,22 +2,40 @@ SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 GO
 -- ============================================================
--- Stage 2: core.UserAccessibleScopes
--- §5.1: erisim = DOGRUDAN grant ∪ YAPISAL ALT (org-scope -> property), ∩ aktif scope.
--- Per-scope principal: direct'te matrix principal'i; descendant'ta org grant'inden MIRAS.
--- Dedup: ayni scope hem direct hem descendant ise DIRECT kazanir.
--- (Derinlik = 2, tek inis: org -> property. OWNER_ORGANIZATION_ID = yapisal parent kenari.)
+-- Stage 6: core.UserAccessibleScopes — <0 SYSTEM OVERRIDE first-class (Anayasa §5.3).
+-- Reach KATALOG-GUUDUMLU (conPrincipalType.REACH_LEVEL), login principal'e gore:
+--   'all'     (system_root/service/public) -> TUM aktif scope (source='override'); matrix kisa devre.
+--   'granted' (scope_*, domain)            -> matrix DOGRUDAN grant ∪ yapisal alt (org->property).
+--   'none'    (denied)                     -> bos.
+-- Boylece system reach GOZLEMLENEBILIR (GUI grid) ve TEK karar noktasi (TVF). §2/§4.
 -- ============================================================
 CREATE OR ALTER FUNCTION core.UserAccessibleScopes(@USER_ID INT)
 RETURNS TABLE
 AS
 RETURN
 (
-    WITH Direct AS
+    WITH UserReach AS
     (
+        SELECT TOP (1) u.PRINCIPAL_TYPE_ID, pt.REACH_LEVEL
+        FROM core.tblUser u
+        JOIN core.conPrincipalType pt ON pt.PRINCIPAL_TYPE_ID = u.PRINCIPAL_TYPE_ID
+        WHERE u.USER_ID = @USER_ID AND u.DELETED = 0
+    ),
+    AllReach AS
+    (
+        -- reach='all' -> tum aktif scope'lar, login principal ile (kisa devre; matrix yok sayilir)
+        SELECT s.SCOPE_ID, ur.PRINCIPAL_TYPE_ID
+        FROM core.tblScope s
+        CROSS JOIN UserReach ur
+        WHERE ur.REACH_LEVEL = N'all' AND s.STATUS = 1 AND s.DELETED = 0
+    ),
+    Direct AS
+    (
+        -- reach='granted' -> matrix dogrudan grant
         SELECT m.SCOPE_ID, m.PRINCIPAL_TYPE_ID
         FROM core.tblUserScopePrincipalMatrix m
-        WHERE m.USER_ID = @USER_ID AND m.DELETED = 0 AND m.STATUS = 1
+        CROSS JOIN UserReach ur
+        WHERE ur.REACH_LEVEL = N'granted' AND m.USER_ID = @USER_ID AND m.DELETED = 0 AND m.STATUS = 1
     ),
     Descend AS
     (
@@ -29,9 +47,11 @@ RETURN
     ),
     Combined AS
     (
-        SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, 0 AS PRIORITY, CAST(N'direct'     AS NVARCHAR(16)) AS SOURCE FROM Direct
+        SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, 0 AS PRIORITY, CAST(N'override'   AS NVARCHAR(16)) AS SOURCE FROM AllReach
         UNION ALL
-        SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, 1 AS PRIORITY, CAST(N'descendant' AS NVARCHAR(16)) AS SOURCE FROM Descend
+        SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, 1 AS PRIORITY, CAST(N'direct'     AS NVARCHAR(16)) AS SOURCE FROM Direct
+        UNION ALL
+        SELECT SCOPE_ID, PRINCIPAL_TYPE_ID, 2 AS PRIORITY, CAST(N'descendant' AS NVARCHAR(16)) AS SOURCE FROM Descend
     ),
     Ranked AS
     (

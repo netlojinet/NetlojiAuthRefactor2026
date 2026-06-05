@@ -12,6 +12,7 @@ CREATE TABLE core.conPrincipalType
     DISPLAY_NAME        NVARCHAR(128)       NOT NULL,
     DESCRIPTION         NVARCHAR(512)       NULL,
     CEILING_LEVEL       NVARCHAR(32)        NOT NULL,
+    REACH_LEVEL         NVARCHAR(16)        NOT NULL    DEFAULT N'granted',   -- §5.3 reach: all (system root/service/public) / granted (scope_*, domain) / none (denied)
     STATUS              TINYINT             NOT NULL    DEFAULT 1,
     DELETED             BIT                 NOT NULL    DEFAULT 0,
     CONSTRAINT PK_conPrincipalType PRIMARY KEY CLUSTERED (TIER_ID, APP_ID)
