@@ -61,6 +61,7 @@ partial class MainForm
 
         // ── TP2: Scopes grid ──
         dgvScopes = new DataGridView();
+        lblAccessPath = new Label();
 
         // ── TP3: Log ──
         txtLog = new TextBox();
@@ -235,8 +236,18 @@ partial class MainForm
         dgvScopes.RowHeadersVisible = false;
         dgvScopes.Font = new Font("Segoe UI", 8.5F);
         dgvScopes.BackgroundColor = SystemColors.Window;
+        dgvScopes.SelectionChanged += DgvScopes_SelectionChanged;
+
+        lblAccessPath.Dock = DockStyle.Bottom;
+        lblAccessPath.Text = "";
+        lblAccessPath.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+        lblAccessPath.Height = 24;
+        lblAccessPath.TextAlign = ContentAlignment.MiddleLeft;
+        lblAccessPath.Padding = new Padding(4, 0, 0, 0);
+        lblAccessPath.BackColor = Color.FromArgb(245, 245, 220);
 
         tpScopes.Controls.Add(dgvScopes);
+        tpScopes.Controls.Add(lblAccessPath);
         tabControl.TabPages.Add(tpScopes);
 
         // ── TP3: Log ──
@@ -332,6 +343,7 @@ partial class MainForm
 
     // ── TP2: Scopes ──
     private DataGridView dgvScopes;
+    private Label lblAccessPath;
 
     // ── TP3: Log ──
     private TextBox txtLog;
