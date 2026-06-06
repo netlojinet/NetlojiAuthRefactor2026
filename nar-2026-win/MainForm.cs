@@ -7,7 +7,8 @@ namespace NetlojiAuthTestTool;
 public partial class MainForm : Form
 {
     private const string ConnectionString =
-        "Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
+        "Server=.;Database=NL_OtoSistem_v2_25;Trusted_Connection=True;TrustServerCertificate=True;";
+        //"Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
 
     // Paylaşılan motor — login + erişim çözümü buradan. GUI == CLI.
     private readonly AuthEngine _engine = new(ConnectionString);

@@ -678,13 +678,17 @@ internal static class Program
 
     private static async Task RunScripts(SqlConnection connection)
     {
-        var scriptDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "sql_scripts");
+        // sql_scripts klasörünü BaseDirectory'den YUKARI doğru arar (root'a taşındı; restructure-dayanıklı).
+        var probe = new DirectoryInfo(AppContext.BaseDirectory);
+        while (probe != null && !Directory.Exists(Path.Combine(probe.FullName, "sql_scripts")))
+            probe = probe.Parent;
 
-        if (!Directory.Exists(scriptDir))
+        if (probe is null)
         {
-            Console.WriteLine($"[ERROR] Scripts directory not found: {scriptDir}");
+            Console.WriteLine("[ERROR] sql_scripts klasörü bulunamadı (BaseDirectory'den yukarı).");
             return;
         }
+        var scriptDir = Path.Combine(probe.FullName, "sql_scripts");
 
         var scripts = Directory.GetFiles(scriptDir, "*.sql")
             .OrderBy(f => f)
