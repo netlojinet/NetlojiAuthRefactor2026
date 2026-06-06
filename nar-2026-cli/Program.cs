@@ -5,7 +5,8 @@ namespace NetlojiAuthRefactor2026;
 internal static class Program
 {
     private const string ConnectionString =
-        "Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
+        "Server=.;Database=NL_OtoSistem_v2_25;Trusted_Connection=True;TrustServerCertificate=True;";
+    //"Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
 
     // Paylaşılan auth motoru (nar-2026-core) — login + erişim çözümü buradan. CLI == GUI.
     private static readonly AuthEngine Engine = new(ConnectionString);
