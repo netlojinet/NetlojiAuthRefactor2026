@@ -49,8 +49,8 @@ public sealed class AuthEngine(string connectionString)
         var userId = reader.GetInt32(reader.GetOrdinal("USER_ID"));
         var username = reader.GetString(reader.GetOrdinal("USERNAME"));
         var principalTypeId = reader.GetInt32(reader.GetOrdinal("PRINCIPAL_TYPE_ID"));
-        var tierId = reader.IsDBNull(reader.GetOrdinal("TIER_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("TIER_ID"));
-        var appId = reader.IsDBNull(reader.GetOrdinal("APP_ID")) ? (short)0 : reader.GetInt16(reader.GetOrdinal("APP_ID"));
+        var tierId = reader.IsDBNull(reader.GetOrdinal("TIER_ID")) ? 0 : reader.GetInt32(reader.GetOrdinal("TIER_ID"));
+        var appId = reader.IsDBNull(reader.GetOrdinal("APP_ID")) ? 0 : reader.GetInt32(reader.GetOrdinal("APP_ID"));
         var ceiling = reader.IsDBNull(reader.GetOrdinal("CEILING_LEVEL")) ? "none" : reader.GetString(reader.GetOrdinal("CEILING_LEVEL"));
         long userKey = 0;
         var ukOrd = reader.GetOrdinal("USER_KEY");

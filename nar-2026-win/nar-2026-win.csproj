@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\nar-2026-core\nar-2026-core.csproj" />
+    <!-- Auth v3: gerçek core'a hizalandı (MVP nar-2026-core motoru yerine). Canlı yetki-doğrulama aracı. -->
+    <ProjectReference Include="..\..\..\Netloji.Core.Auth\Netloji.Core.Auth.csproj" />
   </ItemGroup>
 
 </Project>

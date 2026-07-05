@@ -1,6 +1,6 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
-using Nar2026.Core;   // PAYLAŞILAN auth motoru — CLI ile AYNI kod (nar-2026-core)
+using Netloji.Core.Auth.Authorization;   // Auth v3: GERÇEK core motoru — CoreAuthProbe + ScopeAuthEngine + ported AuthContext/SystemPrincipleRegistry
 
 namespace NetlojiAuthTestTool;
 
@@ -10,11 +10,13 @@ public partial class MainForm : Form
         "Server=.;Database=NL_OtoSistem_v2_25;Trusted_Connection=True;TrustServerCertificate=True;";
         //"Server=.;Database=NetlojiAuthRefactor2026;Trusted_Connection=True;TrustServerCertificate=True;";
 
-    // Paylaşılan motor — login + erişim çözümü buradan. GUI == CLI.
-    private readonly AuthEngine _engine = new(ConnectionString);
+    // GERÇEK core motoru — login + erişim çözümü core.ssp_CheckForLogin / core.UserAccessibleScopes üzerinden.
+    // Araç ne gösteriyorsa framework runtime'da da aynısını hesaplar (canlı doğrulama).
+    private readonly CoreAuthProbe _engine = new(ConnectionString);
 
     private AuthContext? _session;
     private HashSet<int> _ownedScopes = [];   // F2: core.tblScope.OWNER_USER_ID'den (veri-güdümlü)
+    private Dictionary<int, ScopeCatalogEntry> _scopeCatalog = new();   // gerçek core scope kataloğu (tip+ad+parent)
     private Dictionary<int, (string Type, string Name)> _scopeInfo = new();
 
     public MainForm()
@@ -79,7 +81,8 @@ public partial class MainForm : Form
         if (_session is null) { Log("  LOGIN BAŞARISIZ!"); return; }
         Log($"  Login OK: principal={_session.PrincipalTypeId} tier={_session.TierId} ceiling={_session.CeilingLevel} | scopes={_session.ScopeGrants.Count}");
 
-        _scopeInfo = await _engine.LoadScopeCatalogAsync();
+        _scopeCatalog = await _engine.LoadScopeCatalogAsync();
+        _scopeInfo = _scopeCatalog.ToDictionary(kv => kv.Key, kv => (kv.Value.TypeCode, kv.Value.Name));
         _ownedScopes = await _engine.GetOwnedScopeIdsAsync(_session.UserId);   // F2: veri-güdümlü sahiplik
 
         UpdateSessionPanel();
@@ -129,39 +132,27 @@ public partial class MainForm : Form
             return;
         }
 
-        // org + property yapısal verisi (display metadata — sequential reader, MARS yok)
-        var orgData = new List<(int OrgId, int ScopeId, string Name)>();
-        var propData = new List<(int PropId, int ScopeId, string Name, int? OwnerOrgId)>();
-        using (var conn = new SqlConnection(ConnectionString))
-        {
-            conn.Open();
-            using (var cmd = new SqlCommand("SET QUOTED_IDENTIFIER ON; SELECT ORGANIZATION_ID, SCOPE_ID, ORG_NAME FROM core.tblOrganization WHERE DELETED=0", conn))
-            using (var r = cmd.ExecuteReader())
-                while (r.Read()) orgData.Add((r.GetInt32(0), r.GetInt32(1), r.GetString(2)));
-            using (var cmd = new SqlCommand("SET QUOTED_IDENTIFIER ON; SELECT PROPERTY_ID, SCOPE_ID, PROP_NAME, OWNER_ORGANIZATION_ID FROM core.tblProperty WHERE DELETED=0", conn))
-            using (var r = cmd.ExecuteReader())
-                while (r.Read()) propData.Add((r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.IsDBNull(3) ? (int?)null : r.GetInt32(3)));
-        }
-
-        var orgScopeMap = orgData.ToDictionary(o => o.OrgId, o => o.ScopeId);
+        // Auth v3: scope kataloğundan (gerçek core: tblScope/tblOrganization/tblProperty) — ham MVP-şema sorgusu yok.
         var orgNodes = new Dictionary<int, TreeNode>();
 
-        foreach (var (orgId, scopeId, name) in orgData)
+        // owned organization scope'ları
+        foreach (var scopeId in owned)
         {
-            if (!owned.Contains(scopeId)) continue;
-            var node = new TreeNode(FormatScopeLabel("ORG", name, scopeId)) { ForeColor = Color.DarkBlue, Tag = new OrgNodeInfo(orgId, scopeId, name) };
+            if (!_scopeCatalog.TryGetValue(scopeId, out var e) || e.TypeCode != "organization") continue;
+            var node = new TreeNode(FormatScopeLabel("ORG", e.Name, scopeId)) { ForeColor = Color.DarkBlue, Tag = new OrgNodeInfo(e.OrganizationId ?? 0, scopeId, e.Name) };
             AnnotateGrant(node, scopeId);
             rootNode.Nodes.Add(node);
             orgNodes[scopeId] = node;
             placed.Add(scopeId);
         }
 
-        foreach (var (propId, scopeId, name, ownerOrgId) in propData)
+        // owned property scope'ları — parent (OWNER_SCOPE_ID) owned bir org ise onun altına asılır
+        foreach (var scopeId in owned)
         {
-            if (!owned.Contains(scopeId)) continue;
-            var node = new TreeNode(FormatScopeLabel("PROP", name, scopeId)) { ForeColor = Color.DarkGreen, Tag = new PropNodeInfo(propId, scopeId, name, ownerOrgId) };
+            if (!_scopeCatalog.TryGetValue(scopeId, out var e) || e.TypeCode != "property") continue;
+            var node = new TreeNode(FormatScopeLabel("PROP", e.Name, scopeId)) { ForeColor = Color.DarkGreen, Tag = new PropNodeInfo(e.PropertyId ?? 0, scopeId, e.Name, e.ParentScopeId) };
             AnnotateGrant(node, scopeId);
-            if (ownerOrgId.HasValue && orgScopeMap.TryGetValue(ownerOrgId.Value, out var parentScope) && orgNodes.TryGetValue(parentScope, out var orgNode))
+            if (e.ParentScopeId is int parentScope && orgNodes.TryGetValue(parentScope, out var orgNode))
                 orgNode.Nodes.Add(node);
             else
                 rootNode.Nodes.Add(node);
@@ -224,7 +215,7 @@ public partial class MainForm : Form
                 dt.Rows.Add("PROPERTY_ID", prop.PropId.ToString());
                 dt.Rows.Add("SCOPE_ID", prop.ScopeId.ToString());
                 dt.Rows.Add("Ad", prop.Name);
-                dt.Rows.Add("OWNER_ORG_ID", prop.OwnerOrgId?.ToString() ?? "yok (standalone)");
+                dt.Rows.Add("OWNER_SCOPE_ID", prop.OwnerScopeId?.ToString() ?? "yok (standalone)");
                 AddGrantRows(dt, prop.ScopeId);
                 break;
             default:
@@ -308,4 +299,4 @@ public record UserInfo(int UserId, string Username, long GsmNo, int PrincipalTyp
 
 public record ScopeNodeInfo(int ScopeId, string ScopeTypeCode, int ScopeTypeId, string Description);
 public record OrgNodeInfo(int OrgId, int ScopeId, string Name);
-public record PropNodeInfo(int PropId, int ScopeId, string Name, int? OwnerOrgId);
+public record PropNodeInfo(int PropId, int ScopeId, string Name, int? OwnerScopeId);

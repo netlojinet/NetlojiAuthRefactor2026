@@ -16,8 +16,8 @@ public sealed class AuthContext
 
     // Login/identity principal (tblUser.PRINCIPAL_TYPE_ID)
     public int PrincipalTypeId { get; init; }
-    public short TierId { get; init; }
-    public short AppId { get; init; }
+    public int TierId { get; init; }
+    public int AppId { get; init; }
     public string CeilingLevel { get; init; } = string.Empty;
 
     // Matrix: scope → bağlamsal principal grant (core.UserAccessibleScopes TVF)
