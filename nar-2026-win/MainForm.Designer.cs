@@ -16,25 +16,14 @@ partial class MainForm
 
     private void InitializeComponent()
     {
-        components = new System.ComponentModel.Container();
-
-        // ── Split: Ana (sol-sağ) ──
         splitMain = new SplitContainer();
-        // ── Split: Sağ (üst-alt) ──
-        splitRight = new SplitContainer();
-        // ── Split: Tree detay (sol-sağ) ──
-        splitTree = new SplitContainer();
-
-        // ── Sol: Kullanıcı listesi ──
-        lblUsers = new Label();
         lvUsers = new ListView();
         colUserId = new ColumnHeader();
         colUsername = new ColumnHeader();
         colPrincipal = new ColumnHeader();
         colTier = new ColumnHeader();
-
-        // ── Sağ üst: Oturum künyesi ──
-        lblSession = new Label();
+        lblUsers = new Label();
+        splitRight = new SplitContainer();
         pnlSession = new Panel();
         lblSid = new Label();
         lblSuser = new Label();
@@ -46,257 +35,449 @@ partial class MainForm
         lblSsystem = new Label();
         lblSactive = new Label();
         lblSworking = new Label();
-
-        // ── Sağ alt: TabControl ──
+        lblSession = new Label();
         tabControl = new TabControl();
         tpHierarchy = new TabPage();
-        tpScopes = new TabPage();
-        tpLog = new TabPage();
-
-        // ── TP1: Tree + Detail ──
-        lblTree = new Label();
+        splitTree = new SplitContainer();
         tvHierarchy = new TreeView();
-        lblDetail = new Label();
+        lblTree = new Label();
         dgvItemDetail = new DataGridView();
-
-        // ── TP2: Scopes grid ──
+        lblDetail = new Label();
+        tpScopes = new TabPage();
         dgvScopes = new DataGridView();
         lblAccessPath = new Label();
-
-        // ── TP3: Log ──
+        tpLog = new TabPage();
         txtLog = new TextBox();
-
-        // ── SplitContainer ayarları ──
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
+        splitMain.Panel1.SuspendLayout();
+        splitMain.Panel2.SuspendLayout();
         splitMain.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)splitRight).BeginInit();
+        splitRight.Panel1.SuspendLayout();
+        splitRight.Panel2.SuspendLayout();
         splitRight.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)splitTree).BeginInit();
-        splitTree.SuspendLayout();
         pnlSession.SuspendLayout();
         tabControl.SuspendLayout();
         tpHierarchy.SuspendLayout();
-        tpScopes.SuspendLayout();
-        tpLog.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)splitTree).BeginInit();
+        splitTree.Panel1.SuspendLayout();
+        splitTree.Panel2.SuspendLayout();
+        splitTree.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)dgvItemDetail).BeginInit();
+        tpScopes.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)dgvScopes).BeginInit();
+        tpLog.SuspendLayout();
         SuspendLayout();
-
-        // ══════════════════════════════════════
+        // 
         // splitMain
-        // ══════════════════════════════════════
+        // 
         splitMain.Dock = DockStyle.Fill;
-        splitMain.SplitterDistance = 280;
         splitMain.FixedPanel = FixedPanel.Panel1;
-
-        // ══════════════════════════════════════
-        // SOL PANEL: Kullanıcı listesi
-        // ══════════════════════════════════════
-        lblUsers.Dock = DockStyle.Top;
-        lblUsers.Text = "KULLANICILAR";
-        lblUsers.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblUsers.Height = 24;
-        lblUsers.TextAlign = ContentAlignment.MiddleLeft;
-        lblUsers.Padding = new Padding(4, 0, 0, 0);
-
-        lvUsers.Dock = DockStyle.Fill;
-        lvUsers.View = View.Details;
-        lvUsers.FullRowSelect = true;
-        lvUsers.GridLines = true;
-        lvUsers.Font = new Font("Segoe UI", 8.5F);
-        lvUsers.Columns.AddRange([colUserId, colUsername, colPrincipal, colTier]);
-        lvUsers.HeaderStyle = ColumnHeaderStyle.Nonclickable;
-        lvUsers.SelectedIndexChanged += LvUsers_SelectedIndexChanged;
-
-        colUserId.Text = "ID";
-        colUserId.Width = 45;
-        colUsername.Text = "Kullanıcı";
-        colUsername.Width = 150;
-        colPrincipal.Text = "Principal";
-        colPrincipal.Width = 100;
-        colTier.Text = "Tier";
-        colTier.Width = 40;
-
+        splitMain.Location = new Point(0, 0);
+        splitMain.Name = "splitMain";
+        // 
+        // splitMain.Panel1
+        // 
         splitMain.Panel1.Controls.Add(lvUsers);
         splitMain.Panel1.Controls.Add(lblUsers);
-
-        // ══════════════════════════════════════
-        // SAĞ PANEL: splitRight (üst-alt)
-        // ══════════════════════════════════════
+        // 
+        // splitMain.Panel2
+        // 
+        splitMain.Panel2.Controls.Add(splitRight);
+        splitMain.Size = new Size(1200, 700);
+        splitMain.SplitterDistance = 355;
+        splitMain.TabIndex = 0;
+        // 
+        // lvUsers
+        // 
+        lvUsers.Columns.AddRange(new ColumnHeader[] { colUserId, colUsername, colPrincipal, colTier });
+        lvUsers.Dock = DockStyle.Fill;
+        lvUsers.Font = new Font("Segoe UI", 8.5F);
+        lvUsers.FullRowSelect = true;
+        lvUsers.GridLines = true;
+        lvUsers.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+        lvUsers.Location = new Point(0, 24);
+        lvUsers.Name = "lvUsers";
+        lvUsers.Size = new Size(355, 676);
+        lvUsers.TabIndex = 0;
+        lvUsers.UseCompatibleStateImageBehavior = false;
+        lvUsers.View = View.Details;
+        lvUsers.SelectedIndexChanged += LvUsers_SelectedIndexChanged;
+        // 
+        // colUserId
+        // 
+        colUserId.Text = "ID";
+        colUserId.Width = 45;
+        // 
+        // colUsername
+        // 
+        colUsername.Text = "Kullanıcı";
+        colUsername.Width = 150;
+        // 
+        // colPrincipal
+        // 
+        colPrincipal.Text = "Principal";
+        colPrincipal.Width = 100;
+        // 
+        // colTier
+        // 
+        colTier.Text = "Tier";
+        colTier.Width = 40;
+        // 
+        // lblUsers
+        // 
+        lblUsers.Dock = DockStyle.Top;
+        lblUsers.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblUsers.Location = new Point(0, 0);
+        lblUsers.Name = "lblUsers";
+        lblUsers.Padding = new Padding(4, 0, 0, 0);
+        lblUsers.Size = new Size(355, 24);
+        lblUsers.TabIndex = 1;
+        lblUsers.Text = "KULLANICILAR";
+        lblUsers.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // splitRight
+        // 
         splitRight.Dock = DockStyle.Fill;
-        splitRight.Orientation = Orientation.Horizontal;
-        splitRight.SplitterDistance = 130;
         splitRight.FixedPanel = FixedPanel.Panel1;
-
-        // ══════════════════════════════════════
-        // SAĞ ÜST: Oturum künyesi
-        // ══════════════════════════════════════
-        lblSession.Dock = DockStyle.Top;
-        lblSession.Text = "OTURUM DETAY";
-        lblSession.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblSession.Height = 24;
-        lblSession.TextAlign = ContentAlignment.MiddleLeft;
-        lblSession.Padding = new Padding(4, 0, 0, 0);
-
-        pnlSession.Dock = DockStyle.Fill;
-        pnlSession.AutoScroll = true;
-        pnlSession.Padding = new Padding(8);
-
-        var sessionFont = new Font("Segoe UI", 9F);
-        var sessionBold = new Font("Segoe UI", 9F, FontStyle.Bold);
-        int y = 4;
-
-        void AddLabel(ref Label lbl, string text, int yPos, Font? font = null)
-        {
-            lbl = new Label();
-            lbl.Text = text;
-            lbl.Font = font ?? sessionFont;
-            lbl.Location = new Point(8, yPos);
-            lbl.AutoSize = true;
-            pnlSession.Controls.Add(lbl);
-        }
-
-        AddLabel(ref lblSid, "User ID: -", y, sessionBold); y += 20;
-        AddLabel(ref lblSuser, "Kullanıcı: -", y); y += 18;
-        AddLabel(ref lblSprincipal, "Principal: -", y); y += 18;
-        AddLabel(ref lblStier, "Tier: - | App: -", y); y += 18;
-        AddLabel(ref lblSceiling, "Ceiling: -", y); y += 18;
-        AddLabel(ref lblSguard, "Guard Bypass: -", y); y += 18;
-        AddLabel(ref lblSreadonly, "Read Only: -", y); y += 18;
-        AddLabel(ref lblSsystem, "System User: -", y); y += 18;
-        AddLabel(ref lblSactive, "Active Scope: -", y, sessionBold); y += 20;
-        AddLabel(ref lblSworking, "Working Set: -", y);
-
+        splitRight.Location = new Point(0, 0);
+        splitRight.Name = "splitRight";
+        splitRight.Orientation = Orientation.Horizontal;
+        // 
+        // splitRight.Panel1
+        // 
         splitRight.Panel1.Controls.Add(pnlSession);
         splitRight.Panel1.Controls.Add(lblSession);
-
-        // ══════════════════════════════════════
-        // SAĞ ALT: TabControl
-        // ══════════════════════════════════════
+        // 
+        // splitRight.Panel2
+        // 
+        splitRight.Panel2.Controls.Add(tabControl);
+        splitRight.Size = new Size(841, 700);
+        splitRight.SplitterDistance = 277;
+        splitRight.TabIndex = 0;
+        // 
+        // pnlSession
+        // 
+        pnlSession.AutoScroll = true;
+        pnlSession.Controls.Add(lblSid);
+        pnlSession.Controls.Add(lblSuser);
+        pnlSession.Controls.Add(lblSprincipal);
+        pnlSession.Controls.Add(lblStier);
+        pnlSession.Controls.Add(lblSceiling);
+        pnlSession.Controls.Add(lblSguard);
+        pnlSession.Controls.Add(lblSreadonly);
+        pnlSession.Controls.Add(lblSsystem);
+        pnlSession.Controls.Add(lblSactive);
+        pnlSession.Controls.Add(lblSworking);
+        pnlSession.Dock = DockStyle.Fill;
+        pnlSession.Location = new Point(0, 24);
+        pnlSession.Name = "pnlSession";
+        pnlSession.Padding = new Padding(8);
+        pnlSession.Size = new Size(841, 253);
+        pnlSession.TabIndex = 0;
+        // 
+        // lblSid
+        // 
+        lblSid.AutoSize = true;
+        lblSid.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblSid.Location = new Point(8, 4);
+        lblSid.Name = "lblSid";
+        lblSid.Size = new Size(60, 15);
+        lblSid.TabIndex = 0;
+        lblSid.Text = "User ID: -";
+        // 
+        // lblSuser
+        // 
+        lblSuser.AutoSize = true;
+        lblSuser.Font = new Font("Segoe UI", 9F);
+        lblSuser.Location = new Point(8, 24);
+        lblSuser.Name = "lblSuser";
+        lblSuser.Size = new Size(63, 15);
+        lblSuser.TabIndex = 1;
+        lblSuser.Text = "Kullanıcı: -";
+        // 
+        // lblSprincipal
+        // 
+        lblSprincipal.AutoSize = true;
+        lblSprincipal.Font = new Font("Segoe UI", 9F);
+        lblSprincipal.Location = new Point(8, 42);
+        lblSprincipal.Name = "lblSprincipal";
+        lblSprincipal.Size = new Size(64, 15);
+        lblSprincipal.TabIndex = 2;
+        lblSprincipal.Text = "Principal: -";
+        // 
+        // lblStier
+        // 
+        lblStier.AutoSize = true;
+        lblStier.Font = new Font("Segoe UI", 9F);
+        lblStier.Location = new Point(8, 60);
+        lblStier.Name = "lblStier";
+        lblStier.Size = new Size(80, 15);
+        lblStier.TabIndex = 3;
+        lblStier.Text = "Tier: - | App: -";
+        // 
+        // lblSceiling
+        // 
+        lblSceiling.AutoSize = true;
+        lblSceiling.Font = new Font("Segoe UI", 9F);
+        lblSceiling.Location = new Point(8, 78);
+        lblSceiling.Name = "lblSceiling";
+        lblSceiling.Size = new Size(55, 15);
+        lblSceiling.TabIndex = 4;
+        lblSceiling.Text = "Ceiling: -";
+        // 
+        // lblSguard
+        // 
+        lblSguard.AutoSize = true;
+        lblSguard.Font = new Font("Segoe UI", 9F);
+        lblSguard.Location = new Point(8, 96);
+        lblSguard.Name = "lblSguard";
+        lblSguard.Size = new Size(89, 15);
+        lblSguard.TabIndex = 5;
+        lblSguard.Text = "Guard Bypass: -";
+        // 
+        // lblSreadonly
+        // 
+        lblSreadonly.AutoSize = true;
+        lblSreadonly.Font = new Font("Segoe UI", 9F);
+        lblSreadonly.Location = new Point(8, 114);
+        lblSreadonly.Name = "lblSreadonly";
+        lblSreadonly.Size = new Size(72, 15);
+        lblSreadonly.TabIndex = 6;
+        lblSreadonly.Text = "Read Only: -";
+        // 
+        // lblSsystem
+        // 
+        lblSsystem.AutoSize = true;
+        lblSsystem.Font = new Font("Segoe UI", 9F);
+        lblSsystem.Location = new Point(8, 132);
+        lblSsystem.Name = "lblSsystem";
+        lblSsystem.Size = new Size(82, 15);
+        lblSsystem.TabIndex = 7;
+        lblSsystem.Text = "System User: -";
+        // 
+        // lblSactive
+        // 
+        lblSactive.AutoSize = true;
+        lblSactive.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblSactive.Location = new Point(8, 150);
+        lblSactive.Name = "lblSactive";
+        lblSactive.Size = new Size(91, 15);
+        lblSactive.TabIndex = 8;
+        lblSactive.Text = "Active Scope: -";
+        // 
+        // lblSworking
+        // 
+        lblSworking.AutoSize = true;
+        lblSworking.Font = new Font("Segoe UI", 9F);
+        lblSworking.Location = new Point(8, 170);
+        lblSworking.Name = "lblSworking";
+        lblSworking.Size = new Size(82, 15);
+        lblSworking.TabIndex = 9;
+        lblSworking.Text = "Working Set: -";
+        // 
+        // lblSession
+        // 
+        lblSession.Dock = DockStyle.Top;
+        lblSession.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblSession.Location = new Point(0, 0);
+        lblSession.Name = "lblSession";
+        lblSession.Padding = new Padding(4, 0, 0, 0);
+        lblSession.Size = new Size(841, 24);
+        lblSession.TabIndex = 1;
+        lblSession.Text = "OTURUM DETAY";
+        lblSession.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // tabControl
+        // 
+        tabControl.Controls.Add(tpHierarchy);
+        tabControl.Controls.Add(tpScopes);
+        tabControl.Controls.Add(tpLog);
         tabControl.Dock = DockStyle.Fill;
         tabControl.Font = new Font("Segoe UI", 9F);
-
-        // ── TP1: Hiyerarşi (tree + detail) ──
-        tpHierarchy.Text = "Hiyerarşi (Org → Property)";
-        tpHierarchy.Padding = new Padding(4);
+        tabControl.Location = new Point(0, 0);
+        tabControl.Name = "tabControl";
+        tabControl.SelectedIndex = 0;
+        tabControl.Size = new Size(841, 419);
+        tabControl.TabIndex = 0;
+        // 
+        // tpHierarchy
+        // 
         tpHierarchy.BackColor = SystemColors.Control;
-
+        tpHierarchy.Controls.Add(splitTree);
+        tpHierarchy.Location = new Point(4, 24);
+        tpHierarchy.Name = "tpHierarchy";
+        tpHierarchy.Padding = new Padding(4);
+        tpHierarchy.Size = new Size(833, 391);
+        tpHierarchy.TabIndex = 0;
+        tpHierarchy.Text = "Hiyerarşi (Org → Property)";
+        // 
+        // splitTree
+        // 
         splitTree.Dock = DockStyle.Fill;
-        splitTree.SplitterDistance = 260;
-
-        lblTree.Dock = DockStyle.Top;
-        lblTree.Text = "Organizasyon / Mülk Ağacı";
-        lblTree.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-        lblTree.Height = 22;
-        lblTree.TextAlign = ContentAlignment.MiddleLeft;
-
+        splitTree.Location = new Point(4, 4);
+        splitTree.Name = "splitTree";
+        // 
+        // splitTree.Panel1
+        // 
+        splitTree.Panel1.Controls.Add(tvHierarchy);
+        splitTree.Panel1.Controls.Add(lblTree);
+        // 
+        // splitTree.Panel2
+        // 
+        splitTree.Panel2.Controls.Add(dgvItemDetail);
+        splitTree.Panel2.Controls.Add(lblDetail);
+        splitTree.Size = new Size(825, 383);
+        splitTree.SplitterDistance = 665;
+        splitTree.TabIndex = 0;
+        // 
+        // tvHierarchy
+        // 
         tvHierarchy.Dock = DockStyle.Fill;
         tvHierarchy.Font = new Font("Segoe UI", 9F);
-        tvHierarchy.ShowLines = true;
-        tvHierarchy.ShowPlusMinus = true;
-        tvHierarchy.ShowRootLines = true;
         tvHierarchy.HideSelection = false;
+        tvHierarchy.Location = new Point(0, 22);
+        tvHierarchy.Name = "tvHierarchy";
+        tvHierarchy.Size = new Size(665, 361);
+        tvHierarchy.TabIndex = 0;
         tvHierarchy.AfterSelect += TvHierarchy_AfterSelect;
-
-        lblDetail.Dock = DockStyle.Top;
-        lblDetail.Text = "Detay (Inherited)";
-        lblDetail.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-        lblDetail.Height = 22;
-        lblDetail.TextAlign = ContentAlignment.MiddleLeft;
-
-        dgvItemDetail.Dock = DockStyle.Fill;
-        dgvItemDetail.ReadOnly = true;
+        // 
+        // lblTree
+        // 
+        lblTree.Dock = DockStyle.Top;
+        lblTree.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        lblTree.Location = new Point(0, 0);
+        lblTree.Name = "lblTree";
+        lblTree.Size = new Size(665, 22);
+        lblTree.TabIndex = 1;
+        lblTree.Text = "Organizasyon / Mülk Ağacı";
+        lblTree.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // dgvItemDetail
+        // 
         dgvItemDetail.AllowUserToAddRows = false;
         dgvItemDetail.AllowUserToDeleteRows = false;
         dgvItemDetail.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        dgvItemDetail.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        dgvItemDetail.RowHeadersVisible = false;
-        dgvItemDetail.Font = new Font("Segoe UI", 8.5F);
         dgvItemDetail.BackgroundColor = SystemColors.Window;
-
-        splitTree.Panel1.Controls.Add(tvHierarchy);
-        splitTree.Panel1.Controls.Add(lblTree);
-        splitTree.Panel2.Controls.Add(dgvItemDetail);
-        splitTree.Panel2.Controls.Add(lblDetail);
-
-        tpHierarchy.Controls.Add(splitTree);
-        tabControl.TabPages.Add(tpHierarchy);
-
-        // ── TP2: Erişilebilir Scope'lar ──
-        tpScopes.Text = "Erişilebilir Scope'lar";
-        tpScopes.Padding = new Padding(4);
+        dgvItemDetail.Dock = DockStyle.Fill;
+        dgvItemDetail.Font = new Font("Segoe UI", 8.5F);
+        dgvItemDetail.Location = new Point(0, 22);
+        dgvItemDetail.Name = "dgvItemDetail";
+        dgvItemDetail.ReadOnly = true;
+        dgvItemDetail.RowHeadersVisible = false;
+        dgvItemDetail.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        dgvItemDetail.Size = new Size(156, 361);
+        dgvItemDetail.TabIndex = 0;
+        // 
+        // lblDetail
+        // 
+        lblDetail.Dock = DockStyle.Top;
+        lblDetail.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        lblDetail.Location = new Point(0, 0);
+        lblDetail.Name = "lblDetail";
+        lblDetail.Size = new Size(156, 22);
+        lblDetail.TabIndex = 1;
+        lblDetail.Text = "Detay (Inherited)";
+        lblDetail.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // tpScopes
+        // 
         tpScopes.BackColor = SystemColors.Control;
-
-        dgvScopes.Dock = DockStyle.Fill;
-        dgvScopes.ReadOnly = true;
+        tpScopes.Controls.Add(dgvScopes);
+        tpScopes.Controls.Add(lblAccessPath);
+        tpScopes.Location = new Point(4, 24);
+        tpScopes.Name = "tpScopes";
+        tpScopes.Padding = new Padding(4);
+        tpScopes.Size = new Size(17, 0);
+        tpScopes.TabIndex = 1;
+        tpScopes.Text = "Erişilebilir Scope'lar";
+        // 
+        // dgvScopes
+        // 
         dgvScopes.AllowUserToAddRows = false;
         dgvScopes.AllowUserToDeleteRows = false;
         dgvScopes.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        dgvScopes.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        dgvScopes.RowHeadersVisible = false;
-        dgvScopes.Font = new Font("Segoe UI", 8.5F);
         dgvScopes.BackgroundColor = SystemColors.Window;
+        dgvScopes.Dock = DockStyle.Fill;
+        dgvScopes.Font = new Font("Segoe UI", 8.5F);
+        dgvScopes.Location = new Point(4, 4);
+        dgvScopes.Name = "dgvScopes";
+        dgvScopes.ReadOnly = true;
+        dgvScopes.RowHeadersVisible = false;
+        dgvScopes.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        dgvScopes.Size = new Size(9, 0);
+        dgvScopes.TabIndex = 0;
         dgvScopes.SelectionChanged += DgvScopes_SelectionChanged;
-
-        lblAccessPath.Dock = DockStyle.Bottom;
-        lblAccessPath.Text = "";
-        lblAccessPath.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
-        lblAccessPath.Height = 24;
-        lblAccessPath.TextAlign = ContentAlignment.MiddleLeft;
-        lblAccessPath.Padding = new Padding(4, 0, 0, 0);
+        // 
+        // lblAccessPath
+        // 
         lblAccessPath.BackColor = Color.FromArgb(245, 245, 220);
-
-        tpScopes.Controls.Add(dgvScopes);
-        tpScopes.Controls.Add(lblAccessPath);
-        tabControl.TabPages.Add(tpScopes);
-
-        // ── TP3: Log ──
-        tpLog.Text = "İşlem Logu";
-        tpLog.Padding = new Padding(4);
+        lblAccessPath.Dock = DockStyle.Bottom;
+        lblAccessPath.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+        lblAccessPath.Location = new Point(4, -28);
+        lblAccessPath.Name = "lblAccessPath";
+        lblAccessPath.Padding = new Padding(4, 0, 0, 0);
+        lblAccessPath.Size = new Size(9, 24);
+        lblAccessPath.TabIndex = 1;
+        lblAccessPath.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // tpLog
+        // 
         tpLog.BackColor = SystemColors.Control;
-
-        txtLog.Dock = DockStyle.Fill;
-        txtLog.Multiline = true;
-        txtLog.ScrollBars = ScrollBars.Both;
-        txtLog.Font = new Font("Consolas", 9F);
-        txtLog.ReadOnly = true;
-        txtLog.BackColor = Color.FromArgb(30, 30, 30);
-        txtLog.ForeColor = Color.FromArgb(200, 220, 200);
-
         tpLog.Controls.Add(txtLog);
-        tabControl.TabPages.Add(tpLog);
-
-        splitRight.Panel2.Controls.Add(tabControl);
-
-        // ── Ana split'e sağ paneli ekle ──
-        splitMain.Panel2.Controls.Add(splitRight);
-
-        // ══════════════════════════════════════
-        // Form
-        // ══════════════════════════════════════
+        tpLog.Location = new Point(4, 24);
+        tpLog.Name = "tpLog";
+        tpLog.Padding = new Padding(4);
+        tpLog.Size = new Size(17, 0);
+        tpLog.TabIndex = 2;
+        tpLog.Text = "İşlem Logu";
+        // 
+        // txtLog
+        // 
+        txtLog.BackColor = Color.FromArgb(30, 30, 30);
+        txtLog.Dock = DockStyle.Fill;
+        txtLog.Font = new Font("Consolas", 9F);
+        txtLog.ForeColor = Color.FromArgb(200, 220, 200);
+        txtLog.Location = new Point(4, 4);
+        txtLog.Multiline = true;
+        txtLog.Name = "txtLog";
+        txtLog.ReadOnly = true;
+        txtLog.ScrollBars = ScrollBars.Both;
+        txtLog.Size = new Size(9, 0);
+        txtLog.TabIndex = 0;
+        // 
+        // MainForm
+        // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1200, 700);
         Controls.Add(splitMain);
-        MinimumSize = new Size(900, 500);
-        Text = "Netloji Auth Refactor 2026 — GUI Test Tool";
-        StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9F);
-
+        MinimumSize = new Size(900, 500);
+        Name = "MainForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "Netloji Auth Refactor 2026 — GUI Test Tool";
+        splitMain.Panel1.ResumeLayout(false);
+        splitMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
         splitMain.ResumeLayout(false);
+        splitRight.Panel1.ResumeLayout(false);
+        splitRight.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitRight).EndInit();
         splitRight.ResumeLayout(false);
-        ((System.ComponentModel.ISupportInitialize)splitTree).EndInit();
-        splitTree.ResumeLayout(false);
         pnlSession.ResumeLayout(false);
+        pnlSession.PerformLayout();
         tabControl.ResumeLayout(false);
         tpHierarchy.ResumeLayout(false);
+        splitTree.Panel1.ResumeLayout(false);
+        splitTree.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)splitTree).EndInit();
+        splitTree.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)dgvItemDetail).EndInit();
         tpScopes.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)dgvScopes).EndInit();
         tpLog.ResumeLayout(false);
         tpLog.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)dgvItemDetail).EndInit();
-        ((System.ComponentModel.ISupportInitialize)dgvScopes).EndInit();
         ResumeLayout(false);
     }
 

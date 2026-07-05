@@ -53,12 +53,12 @@ public partial class MainForm : Form
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            var uid = reader.GetInt32(0);
-            var uname = reader.GetString(1);
-            var gsm = reader.GetInt64(2);
-            var pid = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
-            var pcode = reader.IsDBNull(4) ? "N/A" : reader.GetString(4);
-            var tier = reader.GetInt16(5);
+            var uid = reader["USER_ID"] as int? ?? 0;
+            var uname = reader["USERNAME"] as string ?? "";
+            var gsm = reader["GSM_NO"] as long? ?? 0L;
+            var pid = reader["PRINCIPAL_TYPE_ID"] as int? ?? 0;
+            var pcode = reader["CODE"] as string ?? "N/A";
+            var tier = reader["TIER_ID"] as short? ?? (short)0;
 
             var item = new ListViewItem(uid.ToString());
             item.SubItems.Add(uname);
